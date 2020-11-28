@@ -1,7 +1,7 @@
 import event_emitter as events
 from scapy.all import sniff
 
-class receive_packet(events.EventEmitter):
+class ReceivePacket(events.EventEmitter):
     def __init__(self):
         super().__init__()
         self.connected = False
@@ -18,7 +18,7 @@ class receive_packet(events.EventEmitter):
 
         sniff(filter = 'tcp and src 85.217.222.71', prn = receive_packet)
 
-class revealer(receive_packet):
+class Revealer(ReceivePacket):
     def __init__(self):
         self.cards = {} # Collected card's from game start-up
         self.collected = False # Check if inventory card's on game start-up are collected
@@ -65,7 +65,6 @@ class revealer(receive_packet):
         elif action == 'pick':
             invID = int(deconstructed_packet[6]) # The inventory ID of opponent's selected card
             self.invID = invID
-            print(self.cards)
             print('https://raw.githubusercontent.com/akbenjii/cpr-card-reveal/main/src/cards/{}.png'.format(self.cards[invID]))
         elif action == 'deal':
             self.handle_deal(deconstructed_packet[6])
@@ -85,4 +84,4 @@ class revealer(receive_packet):
         elif packet.find('%jr%') != -1:
             self.reset()
 
-revealer()
+Revealer()
