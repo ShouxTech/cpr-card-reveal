@@ -1,9 +1,34 @@
+from dearpygui.core import *
+from dearpygui.simple import *
+from threading import Thread
 import event_emitter as events
 from scapy.all import sniff
 
-class ReceivePacket(events.EventEmitter):
+class Interface:
     def __init__(self):
+        set_main_window_size(400, 400)
+        set_global_font_scale(1.2)
+
+        with window('Card Jitsu - Card Revealer', width = 400, height = 400):
+            set_window_pos('Card Jitsu - Card Revealer', 0, 0)
+            add_text('Not Connected', color = [180, 0, 0])
+            add_spacing(count = 2)
+            add_drawing('Card', width = 400, height = 400)
+
+        draw_image('Card', './cards/1.png', pmin = [0, 0], pmax = [250, 280], tag = 'image')
+
+        Thread(target = start_dearpygui).start()
+
+    def connected(self):
+        hide_item('Not Connected')
+
+    def change_image(self, ID):
+        draw_image('Card', './cards/{}.png'.format(str(ID)), pmin = [0, 0], pmax = [250, 280], tag = 'image')
+
+class ReceivePacket(events.EventEmitter):
+    def __init__(self, interface):
         super().__init__()
+        self.interface = interface
         self.connected = False
 
     def start(self):
@@ -12,21 +37,22 @@ class ReceivePacket(events.EventEmitter):
             tcp_packet_data_start = packet_data.find('%xt')
             if tcp_packet_data_start != -1 and (not self.connected):
                 self.connected = True
-                print('Connected!')
+                self.interface.connected()
             if (packet_data.find('%jr%') != -1) or (packet_data.find('%jz%') != -1) or (packet_data.find('%zm%') != -1):
                 self.emit('packet', packet_data)
 
         sniff(filter = 'tcp and src 85.217.222.71', prn = receive_packet)
 
-class Revealer(ReceivePacket):
+class Revealer():
     def __init__(self):
+        self.interface = Interface()
+
         self.cards = {} # Collected card's from game start-up
         self.collected = False # Check if inventory card's on game start-up are collected
         self.invID = None # Inventory ID of opponents most recent selected card
         self.side = None # If penguin's on left or right
 
-        super().__init__()
-        receive_packet = super()
+        receive_packet = ReceivePacket(self.interface)
         receive_packet.on('packet', self.read_packet)
         receive_packet.start()
 
@@ -65,7 +91,8 @@ class Revealer(ReceivePacket):
         elif action == 'pick':
             invID = int(deconstructed_packet[6]) # The inventory ID of opponent's selected card
             self.invID = invID
-            print('https://raw.githubusercontent.com/akbenjii/cpr-card-reveal/main/src/cards/{}.png'.format(self.cards[invID]))
+            self.interface.change_image(self.cards[invID])
+            #print('https://raw.githubusercontent.com/akbenjii/cpr-card-reveal/main/src/cards/{}.png'.format(self.cards[invID]))
         elif action == 'deal':
             self.handle_deal(deconstructed_packet[6])
 
